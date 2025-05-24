@@ -135,11 +135,11 @@
 </head>
 <body class="p-4 sm:p-6 md:p-8">
     <div class="max-w-4xl mx-auto bg-white shadow-lg rounded-xl p-6 sm:p-8">
-        <h1 class="text-3xl sm:text-4xl font-bold text-center mb-6 text-gray-800">Office Attendance Tracker</h1>
+        <h1 class="text-3xl sm:text-4xl font-bold text-center mb-6 text-gray-800">Cab Attendance Tracker</h1>
 
-        <!-- <div id="user-id-display" class="text-sm text-gray-600 text-center mb-4">
+        <div id="user-id-display" class="text-sm text-gray-600 text-center mb-4">
             Your User ID: <span id="current-user-id" class="font-mono bg-gray-100 px-2 py-1 rounded">Loading...</span>
-        </div> -->
+        </div>
 
         <div id="loading-indicator" class="text-center text-blue-600 mb-4">
             Loading attendance data...
@@ -185,33 +185,52 @@
         </div>
     </div>
 
-    <script>
-        // === JSONbin.io Configuration ===
-        // 1. Go to https://jsonbin.io/, sign up, and create a new bin.
-        // 2. Paste your Bin ID here:
-        const JSONBIN_BIN_ID = "YOUR_JSONBIN_BIN_ID_HERE"; // e.g., "60f..."
-        // 3. If you want to enable write access (recommended for this app),
-        //    go to "API Keys" in JSONbin.io, create a Master Key, and paste it here.
-        //    If you leave this empty, the app will be read-only.
-        const JSONBIN_MASTER_KEY = "YOUR_JSONBIN_MASTER_KEY_HERE"; // e.g., "$2b$10$..."
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"; // Corrected import for auth functions
+        import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        const JSONBIN_API_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
-        // ================================
+        // Global variables for Firebase config and app ID
+        // const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // This line can be removed if you hardcode appId below
+        // const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {}; // REMOVE OR COMMENT OUT THIS LINE
+        // const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; // Keep if you use custom tokens
+
+        // === PASTE YOUR ACTUAL FIREBASE CONFIGURATION HERE ===
+        // Replace with your actual Firebase project configuration from the Firebase Console
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        const firebaseConfig = {
+            apiKey: "AIzaSyBW6gx0XEaGVsuNBJhGT-xxtj1tzM9Xqvk",
+            authDomain: "cab-attend.firebaseapp.com",
+            projectId: "cab-attend",
+            storageBucket: "cab-attend.firebasestorage.app",
+            messagingSenderId: "831639193563",
+            appId: "1:831639193563:web:6bf55e37ca26309b0d09fe",
+            measurementId: "G-P6JZDS5N4W"
+        };
+        // =====================================================
+
+        // Derive appId from firebaseConfig.projectId if not explicitly provided by environment
+        const appId = firebaseConfig.projectId || 'default-app-id';
+        const initialAuthToken = null; // Since we are signing in anonymously, this is not strictly needed for this app.
 
         // === EDIT THESE NAMES TO CUSTOMIZE THE PEOPLE IN THE TRACKER ===
         const personNames = [
-            "Alice",
-            "Bob",
-            "Charlie",
-            "David",
-            "Eve"
+            "Alferd",
+            "Manju",
+            "Venkat",
+            "Anand",
+            "Nagaraju"
         ];
         // =============================================================
 
-        let currentAttendanceData = {}; // Stores the latest attendance data from JSONbin
+        let app;
+        let db;
+        let auth;
+        let currentUserId = 'Loading...'; // Initialize with a loading state
 
         const loadingIndicator = document.getElementById('loading-indicator');
         const errorMessage = document.getElementById('error-message');
+        const currentUserIdSpan = document.getElementById('current-user-id');
         const confirmationModal = document.getElementById('confirmation-modal');
         const modalMessage = document.getElementById('modal-message');
         const confirmYesBtn = document.getElementById('confirm-yes');
@@ -220,75 +239,53 @@
         let pendingToggleEvent = null; // To store the event object of the toggle click
 
         /**
-         * Fetches attendance data from JSONbin.io.
-         * @returns {Promise<Object>} A promise that resolves with the attendance data.
+         * Initializes Firebase and authenticates the user.
+         * Sets up an auth state listener to update the UI with the user ID.
          */
-        async function fetchAttendanceFromJSONbin() {
-            loadingIndicator.classList.remove('hidden');
-            errorMessage.classList.add('hidden');
+        async function initializeFirebase() {
             try {
-                const response = await fetch(JSONBIN_API_URL, {
-                    headers: {
-                        'X-Master-Key': JSONBIN_MASTER_KEY // Master key for read access (optional, but good practice)
+                // Show loading indicator
+                loadingIndicator.classList.remove('hidden');
+                errorMessage.classList.add('hidden');
+
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Listen for authentication state changes
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        currentUserId = user.uid;
+                        currentUserIdSpan.textContent = currentUserId;
+                        console.log('User authenticated:', currentUserId);
+                        // Once authenticated, fetch and display data
+                        fetchAndDisplayAttendance();
+                    } else {
+                        // If no user, sign in anonymously or with custom token
+                        try {
+                            // For this app, we always sign in anonymously if not already authenticated.
+                            await signInAnonymously(auth);
+                            // If you were using custom tokens, you'd use:
+                            // if (initialAuthToken) { await signInWithCustomToken(auth, initialAuthToken); } else { await signInAnonymously(auth); }
+                        } catch (error) {
+                            console.error("Error during Firebase sign-in:", error);
+                            currentUserId = 'Authentication Failed';
+                            currentUserIdSpan.textContent = currentUserId;
+                            // Updated error message for clarity
+                            errorMessage.textContent = `Authentication failed: ${error.message}. Please ensure:
+                                1. Your 'apiKey' in firebaseConfig is correct.
+                                2. Anonymous Authentication is enabled in your Firebase project.`;
+                            errorMessage.classList.remove('hidden');
+                            loadingIndicator.classList.add('hidden');
+                        }
                     }
                 });
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
-                // JSONbin.io wraps the data in a 'record' key
-                return data.record || {};
             } catch (error) {
-                console.error("Error fetching attendance data from JSONbin:", error);
-                let userMessage = `Error loading data: ${error.message}. Please ensure your JSONBIN_BIN_ID is correct.`;
-                if (error.message.includes("NetworkError")) {
-                    userMessage += " If you are running this file directly from your computer (e.g., 'file:///'), try deploying it to a web server (like Firebase Hosting or Netlify) as browsers often block data requests from local files due to security policies (CORS).";
-                }
-                errorMessage.textContent = userMessage;
+                console.error("Error initializing Firebase:", error);
+                // Updated error message for clarity
+                errorMessage.textContent = `Firebase initialization failed: ${error.message}. Please ensure your firebaseConfig is correctly formatted and contains a valid 'projectId' and 'apiKey'.`;
                 errorMessage.classList.remove('hidden');
-                return {}; // Return empty object on error
-            } finally {
                 loadingIndicator.classList.add('hidden');
-            }
-        }
-
-        /**
-         * Updates attendance data on JSONbin.io.
-         * @param {Object} newData - The full attendance data object to save.
-         * @returns {Promise<boolean>} A promise that resolves to true if successful, false otherwise.
-         */
-        async function updateAttendanceOnJSONbin(newData) {
-            errorMessage.classList.add('hidden'); // Clear previous errors
-            if (!JSONBIN_MASTER_KEY) {
-                errorMessage.textContent = "Master Key is missing. Cannot update data. Please add JSONBIN_MASTER_KEY in the code.";
-                errorMessage.classList.remove('hidden');
-                return false;
-            }
-
-            try {
-                const response = await fetch(JSONBIN_API_URL, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Master-Key': JSONBIN_MASTER_KEY, // Master key for write access
-                        'X-Bin-Meta': 'false' // To return only the data, not metadata
-                    },
-                    body: JSON.stringify(newData)
-                });
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                await response.json(); // Parse response to ensure it's complete
-                return true;
-            } catch (error) {
-                console.error("Error updating attendance data on JSONbin:", error);
-                let userMessage = `Failed to update attendance: ${error.message}. Please check your JSONBIN_MASTER_KEY.`;
-                if (error.message.includes("NetworkError")) {
-                    userMessage += " If you are running this file directly from your computer (e.g., 'file:///'), try deploying it to a web server (like Firebase Hosting or Netlify) as browsers often block data requests from local files due to security policies (CORS).";
-                }
-                errorMessage.textContent = userMessage;
-                errorMessage.classList.remove('hidden');
-                return false;
             }
         }
 
@@ -313,7 +310,7 @@
                 days.push({
                     dateString: date.toLocaleDateString('en-US', options),
                     dayName: dayNames[date.getDay()],
-                    id: date.toISOString().split('T')[0] //YYYY-MM-DD format for data key
+                    id: date.toISOString().split('T')[0] //YYYY-MM-DD format for Firestore doc ID
                 });
             }
             return days;
@@ -348,7 +345,7 @@
          * Renders the attendance table for a given week.
          * @param {HTMLElement} tableBody - The tbody element to render into.
          * @param {Array<Object>} weekDates - Array of date objects for the week.
-         * @param {Object} attendanceData - Current attendance data from JSONbin.
+         * @param {Object} attendanceData - Current attendance data from Firestore.
          */
         function renderAttendanceTable(tableBody, weekDates, attendanceData) {
             tableBody.innerHTML = ''; // Clear existing rows
@@ -371,7 +368,8 @@
                     const personCell = document.createElement('td');
                     personCell.classList.add('px-4', 'py-3', 'text-center');
 
-                    // Use a generic personId (e.g., person0, person1) for data keys
+                    // Use a generic personId (e.g., person0, person1) for Firestore keys
+                    // This keeps the database structure consistent even if names change.
                     const personId = `person${index}`;
                     const isComing = attendanceData[day.id] ? attendanceData[day.id][personId] || false : false;
 
@@ -383,7 +381,7 @@
                     input.type = 'checkbox';
                     input.checked = isComing;
                     input.dataset.dateId = day.id;
-                    input.dataset.personId = personId; // Data key
+                    input.dataset.personId = personId; // Firestore ID
                     input.dataset.personDisplayName = name; // Display name for modal
                     input.dataset.dateString = day.dateString; // Store date string for modal
                     input.dataset.dayName = day.dayName;     // Store day name for modal
@@ -423,34 +421,26 @@
             if (pendingToggleEvent) {
                 const event = pendingToggleEvent;
                 const dateId = event.target.dataset.dateId;
-                const pId = event.target.dataset.personId;
-                const value = event.target.checked;
+                const pId = event.target.dataset.personId; // This is the Firestore key (e.g., person0)
+                const value = event.target.checked; // This is the new, visually updated value
 
-                // Create a copy of the current data to modify
-                const updatedData = { ...currentAttendanceData };
-                if (!updatedData[dateId]) {
-                    updatedData[dateId] = {};
-                }
-                updatedData[dateId][pId] = value;
-
-                const success = await updateAttendanceOnJSONbin(updatedData);
-
-                if (success) {
-                    console.log(`Attendance for ${pId} on ${dateId} updated to ${value} on JSONbin.`);
-                    currentAttendanceData = updatedData; // Update local cache on success
-                    event.target.dataset.originalChecked = value; // Update original state
-                    // Re-render the tables to reflect the change (optional, but good for consistency)
-                    // This is less critical with JSONbin.io as there's no real-time listener like Firestore's onSnapshot
-                    // If multiple users are editing, they'd need to refresh or the app would need polling.
-                    // For simplicity, we'll just update the local UI.
-                    renderAttendance();
-                } else {
+                try {
+                    const attendanceRef = doc(db, 'artifacts', appId, 'public', 'data', 'officeAttendance', dateId);
+                    await setDoc(attendanceRef, { [pId]: value }, { merge: true });
+                    console.log(`Attendance for ${pId} on ${dateId} updated to ${value}`);
+                    // Update originalChecked dataset to reflect the new saved state
+                    event.target.dataset.originalChecked = value;
+                } catch (e) {
+                    console.error("Error updating document: ", e);
+                    errorMessage.textContent = `Failed to update attendance: ${e.message}`;
+                    errorMessage.classList.remove('hidden');
                     // Revert checkbox state on error
                     event.target.checked = !value;
-                    event.target.dataset.originalChecked = !value;
+                    event.target.dataset.originalChecked = !value; // Update original state as well
+                } finally {
+                    confirmationModal.classList.add('hidden');
+                    pendingToggleEvent = null; // Clear the pending event
                 }
-                confirmationModal.classList.add('hidden');
-                pendingToggleEvent = null;
             }
         });
 
@@ -464,37 +454,62 @@
                 pendingToggleEvent.target.checked = originalState;
             }
             confirmationModal.classList.add('hidden');
-            pendingToggleEvent = null;
+            pendingToggleEvent = null; // Clear the pending event
         });
 
+
         /**
-         * Main function to fetch and render attendance data.
+         * Fetches attendance data from Firestore and updates the UI in real-time.
          */
-        async function renderAttendance() {
+        function fetchAndDisplayAttendance() {
+            if (!db || !auth.currentUser) {
+                console.warn("Firestore or authenticated user not available. Skipping data fetch.");
+                return;
+            }
+
             // Render table headers first
             renderTableHeaders(document.getElementById('current-week-table').querySelector('thead tr'));
             renderTableHeaders(document.getElementById('next-week-table').querySelector('thead tr'));
 
-            currentAttendanceData = await fetchAttendanceFromJSONbin();
 
-            // Get current and next week dates
-            const today = new Date();
-            const currentWeekMonday = new Date(today);
-            currentWeekMonday.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1)); // Adjust to Monday
+            const attendanceCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'officeAttendance');
 
-            const nextWeekMonday = new Date(currentWeekMonday);
-            nextWeekMonday.setDate(currentWeekMonday.getDate() + 7);
+            // Use onSnapshot to listen for real-time updates
+            onSnapshot(attendanceCollectionRef, (snapshot) => {
+                const attendanceData = {};
+                snapshot.forEach(doc => {
+                    attendanceData[doc.id] = doc.data();
+                });
+                console.log("Fetched attendance data:", attendanceData);
 
-            const currentWeekDates = getWeekDays(currentWeekMonday);
-            const nextWeekDates = getWeekDays(nextWeekMonday);
+                // Get current and next week dates
+                const today = new Date();
+                const currentWeekMonday = new Date(today);
+                currentWeekMonday.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1)); // Adjust to Monday
 
-            // Render tables
-            renderAttendanceTable(document.getElementById('current-week-table').querySelector('tbody'), currentWeekDates, currentAttendanceData);
-            renderAttendanceTable(document.getElementById('next-week-table').querySelector('tbody'), nextWeekDates, currentAttendanceData);
+                const nextWeekMonday = new Date(currentWeekMonday);
+                nextWeekMonday.setDate(currentWeekMonday.getDate() + 7);
+
+                const currentWeekDates = getWeekDays(currentWeekMonday);
+                const nextWeekDates = getWeekDays(nextWeekMonday);
+
+                // Render tables
+                renderAttendanceTable(document.getElementById('current-week-table').querySelector('tbody'), currentWeekDates, attendanceData);
+                renderAttendanceTable(document.getElementById('next-week-table').querySelector('tbody'), nextWeekDates, attendanceData);
+
+                // Hide loading indicator
+                loadingIndicator.classList.add('hidden');
+                errorMessage.classList.add('hidden'); // Hide error if data loads successfully
+            }, (error) => {
+                console.error("Error fetching attendance data:", error);
+                errorMessage.textContent = `Error fetching attendance: ${error.message}`;
+                errorMessage.classList.remove('hidden');
+                loadingIndicator.classList.add('hidden');
+            });
         }
 
-        // Initialize the app when the window loads
-        window.onload = renderAttendance;
+        // Initialize Firebase when the window loads
+        window.onload = initializeFirebase;
     </script>
 </body>
 </html>
