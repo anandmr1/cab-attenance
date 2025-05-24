@@ -388,6 +388,20 @@
                     // Store the original state for potential revert
                     input.dataset.originalChecked = isComing;
 
+                    // Event listener for toggle change - show confirmation modal
+                    input.addEventListener('change', (event) => {
+                        pendingToggleEvent = event; // Store the event
+                        const dateString = event.target.dataset.dateString;
+                        const dayName = event.target.dataset.dayName;
+                        const personDisplayName = event.target.dataset.personDisplayName; // Get display name
+                        const newValue = event.target.checked;
+                        const action = newValue ? 'coming to office' : 'not coming to office';
+
+                        // Update modal message with highlighted action and full date/day
+                        modalMessage.innerHTML = `Are you sure you want to mark <strong>${personDisplayName}</strong> as <strong>${action}</strong> on <strong>${dateString} (${dayName})</strong>?`;
+                        confirmationModal.classList.remove('hidden');
+                    });
+
                     const slider = document.createElement('span');
                     slider.classList.add('slider');
 
