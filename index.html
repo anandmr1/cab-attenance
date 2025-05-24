@@ -16,8 +16,8 @@
         .toggle-switch {
             position: relative;
             display: inline-block;
-            width: 40px;
-            height: 24px;
+            width: 32px; /* Reduced width */
+            height: 20px; /* Reduced height */
         }
         .toggle-switch input {
             opacity: 0;
@@ -39,10 +39,10 @@
         .slider:before {
             position: absolute;
             content: "";
-            height: 16px;
-            width: 16px;
-            left: 4px;
-            bottom: 4px;
+            height: 14px; /* Reduced size */
+            width: 14px; /* Reduced size */
+            left: 3px; /* Adjusted position */
+            bottom: 3px; /* Adjusted position */
             background-color: white;
             -webkit-transition: .4s;
             transition: .4s;
@@ -55,9 +55,9 @@
             box-shadow: 0 0 1px #3b82f6;
         }
         input:checked + .slider:before {
-            -webkit-transform: translateX(16px);
-            -ms-transform: translateX(16px);
-            transform: translateX(16px);
+            -webkit-transform: translateX(12px); /* Adjusted translation */
+            -ms-transform: translateX(12px);
+            transform: translateX(12px);
         }
         /* Rounded corners for tables and cells */
         table {
@@ -67,7 +67,7 @@
             overflow: hidden; /* Ensures rounded corners are visible */
         }
         th, td {
-            padding: 0.75rem 1rem; /* p-3 p-4 */
+            padding: 0.25rem; /* Reverted to slightly more padding than 0 */
             border-bottom: 1px solid #e2e8f0; /* border-b border-gray-200 */
         }
         th {
@@ -133,24 +133,24 @@
         }
     </style>
 </head>
-<body class="p-4 sm:p-6 md:p-8">
-    <div class="max-w-4xl mx-auto bg-white shadow-lg rounded-xl p-6 sm:p-8">
-        <h1 class="text-3xl sm:text-4xl font-bold text-center mb-6 text-gray-800">Cab Attendance Tracker</h1>
+<body class="p-3 sm:p-6 md:p-8">
+    <div class="max-w-4xl mx-auto bg-white shadow-lg rounded-xl p-3 sm:p-8">
+        <h1 class="text-2xl sm:text-4xl font-bold text-center mb-4 text-gray-800">Cab Attendance Tracker</h1>
 
-        <div id="user-id-display" class="text-sm text-gray-600 text-center mb-4">
+        <div id="user-id-display" class="text-sm text-gray-600 text-center mb-2">
             Your User ID: <span id="current-user-id" class="font-mono bg-gray-100 px-2 py-1 rounded">Loading...</span>
         </div>
 
-        <div id="loading-indicator" class="text-center text-blue-600 mb-4">
+        <div id="loading-indicator" class="text-center text-blue-600 mb-2">
             Loading attendance data...
         </div>
 
-        <div id="error-message" class="text-center text-red-600 mb-4 hidden">
+        <div id="error-message" class="text-center text-red-600 mb-2 hidden">
             Error loading data. Please try again.
         </div>
 
-        <h2 class="text-2xl font-semibold mb-4 text-gray-700">Current Week</h2>
-        <div class="overflow-x-auto mb-8">
+        <h2 class="text-xl sm:text-2xl font-semibold mb-3 text-gray-700">Current Week</h2>
+        <div class="overflow-x-auto mb-6">
             <table id="current-week-table" class="min-w-full bg-white rounded-xl shadow-md">
                 <thead>
                     <tr id="current-week-header-row">
@@ -161,7 +161,7 @@
             </table>
         </div>
 
-        <h2 class="text-2xl font-semibold mb-4 text-gray-700">Next Week</h2>
+        <h2 class="text-xl sm:text-2xl font-semibold mb-3 text-gray-700">Next Week</h2>
         <div class="overflow-x-auto">
             <table id="next-week-table" class="min-w-full bg-white rounded-xl shadow-md">
                 <thead>
@@ -296,8 +296,8 @@
          */
         function getWeekDays(startDate) {
             const days = [];
-            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-            const options = { month: 'short', day: 'numeric', year: 'numeric' };
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; // Shortened day names
+            const options = { month: 'short', day: 'numeric' }; // Removed year for compactness
 
             // Ensure startDate is a Monday (or adjust if it's not)
             const currentDay = startDate.getDay(); // 0 for Sunday, 1 for Monday
@@ -309,7 +309,7 @@
                 date.setDate(monday.getDate() + i);
                 days.push({
                     dateString: date.toLocaleDateString('en-US', options),
-                    dayName: dayNames[date.getDay()],
+                    dayName: dayNames[date.getDay()], // Use shortened day name
                     id: date.toISOString().split('T')[0] //YYYY-MM-DD format for Firestore doc ID
                 });
             }
@@ -325,14 +325,14 @@
 
             // Add Date & Day header
             const dateDayHeader = document.createElement('th');
-            dateDayHeader.classList.add('px-4', 'py-3', 'rounded-tl-xl');
+            dateDayHeader.classList.add('px-1', 'py-1', 'rounded-tl-xl', 'text-xs'); /* Adjusted padding and font size */
             dateDayHeader.textContent = 'Date & Day';
             headerRow.appendChild(dateDayHeader);
 
             // Add Person Name headers
             personNames.forEach((name, index) => {
                 const personHeader = document.createElement('th');
-                personHeader.classList.add('px-4', 'py-3');
+                personHeader.classList.add('px-1', 'py-1', 'text-xs'); /* Adjusted padding and font size */
                 personHeader.textContent = name;
                 if (index === personNames.length - 1) {
                     personHeader.classList.add('rounded-tr-xl'); // Rounded corner for the last header
@@ -359,14 +359,14 @@
                 }
 
                 const dateCell = document.createElement('td');
-                dateCell.classList.add('px-4', 'py-3', 'font-medium');
+                dateCell.classList.add('px-1', 'py-1', 'font-medium', 'text-xs'); /* Adjusted padding and font size */
                 dateCell.textContent = `${day.dateString} (${day.dayName})`;
                 row.appendChild(dateCell);
 
                 // Add cells for each person based on personNames array length
                 personNames.forEach((name, index) => {
                     const personCell = document.createElement('td');
-                    personCell.classList.add('px-4', 'py-3', 'text-center');
+                    personCell.classList.add('px-1', 'py-1', 'text-center', 'text-xs'); /* Adjusted padding and font size */
 
                     // Use a generic personId (e.g., person0, person1) for Firestore keys
                     // This keeps the database structure consistent even if names change.
@@ -387,20 +387,6 @@
                     input.dataset.dayName = day.dayName;     // Store day name for modal
                     // Store the original state for potential revert
                     input.dataset.originalChecked = isComing;
-
-                    // Event listener for toggle change - show confirmation modal
-                    input.addEventListener('change', (event) => {
-                        pendingToggleEvent = event; // Store the event
-                        const dateString = event.target.dataset.dateString;
-                        const dayName = event.target.dataset.dayName;
-                        const personDisplayName = event.target.dataset.personDisplayName; // Get display name
-                        const newValue = event.target.checked;
-                        const action = newValue ? 'coming to office' : 'not coming to office';
-
-                        // Update modal message with highlighted action and full date/day
-                        modalMessage.innerHTML = `Are you sure you want to mark <strong>${personDisplayName}</strong> as <strong>${action}</strong> on <strong>${dateString} (${dayName})</strong>?`;
-                        confirmationModal.classList.remove('hidden');
-                    });
 
                     const slider = document.createElement('span');
                     slider.classList.add('slider');
