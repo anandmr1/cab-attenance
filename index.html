@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Office Attendance Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Light background */
+            color: #334155; /* Darker text */
+        }
+        /* Custom toggle switch styling */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 24px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            -webkit-transition: .4s;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            -webkit-transition: .4s;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #3b82f6; /* Blue for checked */
+        }
+        input:focus + .slider {
+            box-shadow: 0 0 1px #3b82f6;
+        }
+        input:checked + .slider:before {
+            -webkit-transform: translateX(16px);
+            -ms-transform: translateX(16px);
+            transform: translateX(16px);
+        }
+        /* Rounded corners for tables and cells */
+        table {
+            border-collapse: separate;
+            border-spacing: 0;
+            border-radius: 0.75rem; /* rounded-xl */
+            overflow: hidden; /* Ensures rounded corners are visible */
+        }
+        th, td {
+            padding: 0.75rem 1rem; /* p-3 p-4 */
+            border-bottom: 1px solid #e2e8f0; /* border-b border-gray-200 */
+        }
+        th {
+            background-color: #e2e8f0; /* bg-gray-200 */
+            text-align: left;
+            font-weight: 600; /* font-semibold */
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        .highlight-current-day {
+            background-color: #dbeafe; /* Light blue for current day */
+            font-weight: 600;
+        }
+
+        /* Modal specific styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            max-width: 90%;
+            width: 400px;
+            text-align: center;
+        }
+        .modal-buttons {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 1.5rem;
+        }
+        .modal-buttons button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .modal-buttons .confirm-button {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .modal-buttons .confirm-button:hover {
+            background-color: #2563eb;
+        }
+        .modal-buttons .cancel-button {
+            background-color: #e2e8f0;
+            color: #334155;
+        }
+        .modal-buttons .cancel-button:hover {
+            background-color: #cbd5e1;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 md:p-8">
+    <div class="max-w-4xl mx-auto bg-white shadow-lg rounded-xl p-6 sm:p-8">
+        <h1 class="text-3xl sm:text-4xl font-bold text-center mb-6 text-gray-800">Office Attendance Tracker</h1>
+
+        <div id="user-id-display" class="text-sm text-gray-600 text-center mb-4">
+            Your User ID: <span id="current-user-id" class="font-mono bg-gray-100 px-2 py-1 rounded">Loading...</span>
+        </div>
+
+        <div id="loading-indicator" class="text-center text-blue-600 mb-4 hidden">
+            Loading attendance data...
+        </div>
+
+        <div id="error-message" class="text-center text-red-600 mb-4 hidden">
+            Error loading data. Please try again.
+        </div>
+
+        <h2 class="text-2xl font-semibold mb-4 text-gray-700">Current Week</h2>
+        <div class="overflow-x-auto mb-8">
+            <table id="current-week-table" class="min-w-full bg-white rounded-xl shadow-md">
+                <thead>
+                    <tr id="current-week-header-row">
+                        </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
+        </div>
+
+        <h2 class="text-2xl font-semibold mb-4 text-gray-700">Next Week</h2>
+        <div class="overflow-x-auto">
+            <table id="next-week-table" class="min-w-full bg-white rounded-xl shadow-md">
+                <thead>
+                    <tr id="next-week-header-row">
+                        </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="confirmation-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="text-xl font-semibold mb-4 text-gray-800">Confirm Attendance Change</h3>
+            <p id="modal-message" class="text-gray-700 mb-6"></p>
+            <div class="modal-buttons">
+                <button id="confirm-yes" class="confirm-button">Confirm</button>
+                <button id="confirm-no" class="cancel-button">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"; // Corrected import for auth functions
+        import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        // Global variables for Firebase config and app ID
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // === EDIT THESE NAMES TO CUSTOMIZE THE PEOPLE IN THE TRACKER ===
+        const personNames = [
+            "Alice",
+            "Bob",
+            "Charlie",
+            "David",
+            "Eve"
+        ];
+        // =============================================================
+
+        let app;
+        let db;
+        let auth;
+        let currentUserId = 'Loading...'; // Initialize with a loading state
+
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const errorMessage = document.getElementById('error-message');
+        const currentUserIdSpan = document.getElementById('current-user-id');
+        const confirmationModal = document.getElementById('confirmation-modal');
+        const modalMessage = document.getElementById('modal-message');
+        const confirmYesBtn = document.getElementById('confirm-yes');
+        const confirmNoBtn = document.getElementById('confirm-no');
+
+        let pendingToggleEvent = null; // To store the event object of the toggle click
+
+        /**
+         * Initializes Firebase and authenticates the user.
+         * Sets up an auth state listener to update the UI with the user ID.
+         */
+        async function initializeFirebase() {
+            try {
+                // Show loading indicator
+                loadingIndicator.classList.remove('hidden');
+                errorMessage.classList.add('hidden');
+
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Listen for authentication state changes
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        currentUserId = user.uid;
+                        currentUserIdSpan.textContent = currentUserId;
+                        console.log('User authenticated:', currentUserId);
+                        // Once authenticated, fetch and display data
+                        fetchAndDisplayAttendance();
+                    } else {
+                        // If no user, sign in anonymously or with custom token
+                        try {
+                            if (initialAuthToken) {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                            } else {
+                                await signInAnonymously(auth);
+                            }
+                        } catch (error) {
+                            console.error("Error during Firebase sign-in:", error);
+                            currentUserId = 'Authentication Failed';
+                            currentUserIdSpan.textContent = currentUserId;
+                            errorMessage.textContent = `Authentication failed: ${error.message}`;
+                            errorMessage.classList.remove('hidden');
+                            loadingIndicator.classList.add('hidden');
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error("Error initializing Firebase:", error);
+                errorMessage.textContent = `Firebase initialization failed: ${error.message}`;
+                errorMessage.classList.remove('hidden');
+                loadingIndicator.classList.add('hidden');
+            }
+        }
+
+        /**
+         * Generates an array of dates for the specified week, Monday to Friday.
+         * @param {Date} startDate - The starting date of the week (e.g., a Monday).
+         * @returns {Array<Object>} An array of date objects with date string and day name.
+         */
+        function getWeekDays(startDate) {
+            const days = [];
+            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const options = { month: 'short', day: 'numeric', year: 'numeric' };
+
+            // Ensure startDate is a Monday (or adjust if it's not)
+            const currentDay = startDate.getDay(); // 0 for Sunday, 1 for Monday
+            const diff = startDate.getDate() - currentDay + (currentDay === 0 ? -6 : 1); // Adjust to Monday
+            const monday = new Date(startDate.setDate(diff));
+
+            for (let i = 0; i < 5; i++) { // Monday to Friday (5 days)
+                const date = new Date(monday);
+                date.setDate(monday.getDate() + i);
+                days.push({
+                    dateString: date.toLocaleDateString('en-US', options),
+                    dayName: dayNames[date.getDay()],
+                    id: date.toISOString().split('T')[0] //YYYY-MM-DD format for Firestore doc ID
+                });
+            }
+            return days;
+        }
+
+        /**
+         * Renders the table headers (Date & Day and Person Names).
+         * @param {HTMLElement} headerRow - The tr element in the thead to render into.
+         */
+        function renderTableHeaders(headerRow) {
+            headerRow.innerHTML = ''; // Clear existing headers
+
+            // Add Date & Day header
+            const dateDayHeader = document.createElement('th');
+            dateDayHeader.classList.add('px-4', 'py-3', 'rounded-tl-xl');
+            dateDayHeader.textContent = 'Date & Day';
+            headerRow.appendChild(dateDayHeader);
+
+            // Add Person Name headers
+            personNames.forEach((name, index) => {
+                const personHeader = document.createElement('th');
+                personHeader.classList.add('px-4', 'py-3');
+                personHeader.textContent = name;
+                if (index === personNames.length - 1) {
+                    personHeader.classList.add('rounded-tr-xl'); // Rounded corner for the last header
+                }
+                headerRow.appendChild(personHeader);
+            });
+        }
+
+        /**
+         * Renders the attendance table for a given week.
+         * @param {HTMLElement} tableBody - The tbody element to render into.
+         * @param {Array<Object>} weekDates - Array of date objects for the week.
+         * @param {Object} attendanceData - Current attendance data from Firestore.
+         */
+        function renderAttendanceTable(tableBody, weekDates, attendanceData) {
+            tableBody.innerHTML = ''; // Clear existing rows
+            const today = new Date().toISOString().split('T')[0]; //YYYY-MM-DD
+
+            weekDates.forEach(day => {
+                const row = document.createElement('tr');
+                row.classList.add('hover:bg-gray-50'); // Hover effect
+                if (day.id === today) {
+                    row.classList.add('highlight-current-day');
+                }
+
+                const dateCell = document.createElement('td');
+                dateCell.classList.add('px-4', 'py-3', 'font-medium');
+                dateCell.textContent = `${day.dateString} (${day.dayName})`;
+                row.appendChild(dateCell);
+
+                // Add cells for each person based on personNames array length
+                personNames.forEach((name, index) => {
+                    const personCell = document.createElement('td');
+                    personCell.classList.add('px-4', 'py-3', 'text-center');
+
+                    // Use a generic personId (e.g., person0, person1) for Firestore keys
+                    // This keeps the database structure consistent even if names change.
+                    const personId = `person${index}`;
+                    const isComing = attendanceData[day.id] ? attendanceData[day.id][personId] || false : false;
+
+                    // Create a custom toggle switch
+                    const label = document.createElement('label');
+                    label.classList.add('toggle-switch');
+
+                    const input = document.createElement('input');
+                    input.type = 'checkbox';
+                    input.checked = isComing;
+                    input.dataset.dateId = day.id;
+                    input.dataset.personId = personId; // Firestore ID
+                    input.dataset.personDisplayName = name; // Display name for modal
+                    input.dataset.dateString = day.dateString; // Store date string for modal
+                    input.dataset.dayName = day.dayName;     // Store day name for modal
+                    // Store the original state for potential revert
+                    input.dataset.originalChecked = isComing;
+
+                    // Event listener for toggle change - show confirmation modal
+                    input.addEventListener('change', (event) => {
+                        pendingToggleEvent = event; // Store the event
+                        const dateString = event.target.dataset.dateString;
+                        const dayName = event.target.dataset.dayName;
+                        const personDisplayName = event.target.dataset.personDisplayName; // Get display name
+                        const newValue = event.target.checked;
+                        const action = newValue ? 'coming to office' : 'not coming to office';
+
+                        // Update modal message with highlighted action and full date/day
+                        modalMessage.innerHTML = `Are you sure you want to mark <strong>${personDisplayName}</strong> as <strong>${action}</strong> on <strong>${dateString} (${dayName})</strong>?`;
+                        confirmationModal.classList.remove('hidden');
+                    });
+
+                    const slider = document.createElement('span');
+                    slider.classList.add('slider');
+
+                    label.appendChild(input);
+                    label.appendChild(slider);
+                    personCell.appendChild(label);
+                    row.appendChild(personCell);
+                });
+                tableBody.appendChild(row);
+            });
+        }
+
+        /**
+         * Handles the confirmation of a toggle action.
+         */
+        confirmYesBtn.addEventListener('click', async () => {
+            if (pendingToggleEvent) {
+                const event = pendingToggleEvent;
+                const dateId = event.target.dataset.dateId;
+                const pId = event.target.dataset.personId; // This is the Firestore key (e.g., person0)
+                const value = event.target.checked; // This is the new, visually updated value
+
+                try {
+                    const attendanceRef = doc(db, 'artifacts', appId, 'public', 'data', 'officeAttendance', dateId);
+                    await setDoc(attendanceRef, { [pId]: value }, { merge: true });
+                    console.log(`Attendance for ${pId} on ${dateId} updated to ${value}`);
+                    // Update originalChecked dataset to reflect the new saved state
+                    event.target.dataset.originalChecked = value;
+                } catch (e) {
+                    console.error("Error updating document: ", e);
+                    errorMessage.textContent = `Failed to update attendance: ${e.message}`;
+                    errorMessage.classList.remove('hidden');
+                    // Revert checkbox state on error
+                    event.target.checked = !value;
+                    event.target.dataset.originalChecked = !value; // Update original state as well
+                } finally {
+                    confirmationModal.classList.add('hidden');
+                    pendingToggleEvent = null; // Clear the pending event
+                }
+            }
+        });
+
+        /**
+         * Handles the cancellation of a toggle action.
+         */
+        confirmNoBtn.addEventListener('click', () => {
+            if (pendingToggleEvent) {
+                // Revert the checkbox to its original state
+                const originalState = pendingToggleEvent.target.dataset.originalChecked === 'true';
+                pendingToggleEvent.target.checked = originalState;
+            }
+            confirmationModal.classList.add('hidden');
+            pendingToggleEvent = null; // Clear the pending event
+        });
+
+
+        /**
+         * Fetches attendance data from Firestore and updates the UI in real-time.
+         */
+        function fetchAndDisplayAttendance() {
+            if (!db || !auth.currentUser) {
+                console.warn("Firestore or authenticated user not available. Skipping data fetch.");
+                return;
+            }
+
+            // Render table headers first
+            renderTableHeaders(document.getElementById('current-week-table').querySelector('thead tr'));
+            renderTableHeaders(document.getElementById('next-week-table').querySelector('thead tr'));
+
+
+            const attendanceCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'officeAttendance');
+
+            // Use onSnapshot to listen for real-time updates
+            onSnapshot(attendanceCollectionRef, (snapshot) => {
+                const attendanceData = {};
+                snapshot.forEach(doc => {
+                    attendanceData[doc.id] = doc.data();
+                });
+                console.log("Fetched attendance data:", attendanceData);
+
+                // Get current and next week dates
+                const today = new Date();
+                const currentWeekMonday = new Date(today);
+                currentWeekMonday.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1)); // Adjust to Monday
+
+                const nextWeekMonday = new Date(currentWeekMonday);
+                nextWeekMonday.setDate(currentWeekMonday.getDate() + 7);
+
+                const currentWeekDates = getWeekDays(currentWeekMonday);
+                const nextWeekDates = getWeekDays(nextWeekMonday);
+
+                // Render tables
+                renderAttendanceTable(document.getElementById('current-week-table').querySelector('tbody'), currentWeekDates, attendanceData);
+                renderAttendanceTable(document.getElementById('next-week-table').querySelector('tbody'), nextWeekDates, attendanceData);
+
+                // Hide loading indicator
+                loadingIndicator.classList.add('hidden');
+                errorMessage.classList.add('hidden'); // Hide error if data loads successfully
+            }, (error) => {
+                console.error("Error fetching attendance data:", error);
+                errorMessage.textContent = `Error fetching attendance: ${error.message}`;
+                errorMessage.classList.remove('hidden');
+                loadingIndicator.classList.add('hidden');
+            });
+        }
+
+        // Initialize Firebase when the window loads
+        window.onload = initializeFirebase;
+    </script>
+</body>
+</html>
