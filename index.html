@@ -172,6 +172,18 @@
                     </tbody>
             </table>
         </div>
+
+        <div class="flex justify-between items-center mt-6 pt-4 border-t border-gray-200">
+            <button id="prev-week-btn" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 text-sm sm:text-base">
+                &larr; 
+            </button>
+            <button id="current-week-btn" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-600 focus:ring-opacity-50 text-sm sm:text-base">
+                Current Week
+            </button>
+            <button id="next-week-btn" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 text-sm sm:text-base">
+                &rarr;
+            </button>
+        </div>
     </div>
 
     <div id="confirmation-modal" class="modal-overlay hidden">
@@ -228,6 +240,9 @@
         let auth;
         let currentUserId = 'Loading...'; // Initialize with a loading state
 
+        // Navigation state variable
+        let weekOffset = 0; // 0 for current week, -1 for previous, +1 for next
+
         const loadingIndicator = document.getElementById('loading-indicator');
         const errorMessage = document.getElementById('error-message');
         const currentUserIdSpan = document.getElementById('current-user-id');
@@ -235,6 +250,12 @@
         const modalMessage = document.getElementById('modal-message');
         const confirmYesBtn = document.getElementById('confirm-yes');
         const confirmNoBtn = document.getElementById('confirm-no');
+
+        // Navigation Buttons
+        const prevWeekBtn = document.getElementById('prev-week-btn');
+        const currentWeekBtn = document.getElementById('current-week-btn');
+        const nextWeekBtn = document.getElementById('next-week-btn');
+
 
         let pendingToggleEvent = null; // To store the event object of the toggle click
 
@@ -349,12 +370,12 @@
          */
         function renderAttendanceTable(tableBody, weekDates, attendanceData) {
             tableBody.innerHTML = ''; // Clear existing rows
-            const today = new Date().toISOString().split('T')[0]; //YYYY-MM-DD
+            const actualTodayDateString = new Date().toISOString().split('T')[0]; //YYYY-MM-DD of actual current day
 
             weekDates.forEach(day => {
                 const row = document.createElement('tr');
                 row.classList.add('hover:bg-gray-50'); // Hover effect
-                if (day.id === today) {
+                if (day.id === actualTodayDateString) { // Highlight actual current day
                     row.classList.add('highlight-current-day');
                 }
 
@@ -471,7 +492,6 @@
             renderTableHeaders(document.getElementById('current-week-table').querySelector('thead tr'));
             renderTableHeaders(document.getElementById('next-week-table').querySelector('thead tr'));
 
-
             const attendanceCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'officeAttendance');
 
             // Use onSnapshot to listen for real-time updates
@@ -482,16 +502,23 @@
                 });
                 console.log("Fetched attendance data:", attendanceData);
 
-                // Get current and next week dates
-                const today = new Date();
-                const currentWeekMonday = new Date(today);
-                currentWeekMonday.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1)); // Adjust to Monday
+                // --- Calculate weeks based on weekOffset ---
+                const actualToday = new Date(); // Get the actual current date
+                const baseMonday = new Date(actualToday);
+                // Adjust baseMonday to the Monday of the *actual* current week
+                baseMonday.setDate(actualToday.getDate() - (actualToday.getDay() === 0 ? 6 : actualToday.getDay() - 1));
 
-                const nextWeekMonday = new Date(currentWeekMonday);
-                nextWeekMonday.setDate(currentWeekMonday.getDate() + 7);
+                // Calculate the "current week" based on the offset
+                const currentWeekCalculatedMonday = new Date(baseMonday);
+                currentWeekCalculatedMonday.setDate(baseMonday.getDate() + (weekOffset * 7));
 
-                const currentWeekDates = getWeekDays(currentWeekMonday);
-                const nextWeekDates = getWeekDays(nextWeekMonday);
+                const currentWeekDates = getWeekDays(currentWeekCalculatedMonday);
+
+                // Calculate the "next week" relative to the current *displayed* week
+                const nextWeekCalculatedMonday = new Date(currentWeekCalculatedMonday);
+                nextWeekCalculatedMonday.setDate(currentWeekCalculatedMonday.getDate() + 7);
+                const nextWeekDates = getWeekDays(nextWeekCalculatedMonday);
+                // ------------------------------------------
 
                 // Render tables
                 renderAttendanceTable(document.getElementById('current-week-table').querySelector('tbody'), currentWeekDates, attendanceData);
@@ -507,6 +534,23 @@
                 loadingIndicator.classList.add('hidden');
             });
         }
+
+        // Add Event Listeners for Navigation Buttons
+        prevWeekBtn.addEventListener('click', () => {
+            weekOffset--;
+            fetchAndDisplayAttendance();
+        });
+
+        currentWeekBtn.addEventListener('click', () => {
+            weekOffset = 0; // Reset to the actual current week
+            fetchAndDisplayAttendance();
+        });
+
+        nextWeekBtn.addEventListener('click', () => {
+            weekOffset++;
+            fetchAndDisplayAttendance();
+        });
+
 
         // Initialize Firebase when the window loads
         window.onload = initializeFirebase;
