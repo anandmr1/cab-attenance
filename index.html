@@ -191,8 +191,25 @@
         import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // Global variables for Firebase config and app ID
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        //const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = {
+
+  apiKey: "AIzaSyDEK6s5pTgqPf_Tf2gJ-yhI8b8Y0kh-FnY",
+
+  authDomain: "cab-tracking-a1a22.firebaseapp.com",
+
+  projectId: "cab-tracking-a1a22",
+
+  storageBucket: "cab-tracking-a1a22.firebasestorage.app",
+
+  messagingSenderId: "962012001237",
+
+  appId: "1:962012001237:web:a981fcb55c05dce05ac35c",
+
+  measurementId: "G-X52PXGYG69"
+
+};
+
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         // === EDIT THESE NAMES TO CUSTOMIZE THE PEOPLE IN THE TRACKER ===
